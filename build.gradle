@@ -3,12 +3,15 @@ plugins {
     id 'org.springframework.boot' version '3.2.0'
     id 'io.spring.dependency-management' version '1.1.4'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'maven-publish'
 }
 
 group = 'com.kaleert'
 version = '1.1.0'
 
 java {
+    withSourcesJar()
+    withJavadocJar()
     sourceCompatibility = '21'
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -80,4 +83,12 @@ tasks.named('test') {
 task generateDocs(type: JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.kaleert.nyagram.docgen.DocGenerator'
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
 }
