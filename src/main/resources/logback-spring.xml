@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%X{traceId}] - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="ASYNC_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <neverBlock>true</neverBlock>
+        <queueSize>512</queueSize>
+        <appender-ref ref="CONSOLE"/>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="ASYNC_CONSOLE"/>
+    </root>
+
+    <logger name="org.apache" level="WARN"/>
+    <logger name="org.springframework" level="ERROR"/>
+    <logger name="org.hibernate.SQL" level="OFF"/>
+    
+</configuration>

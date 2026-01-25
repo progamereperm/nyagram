@@ -1,0 +1,31 @@
+time:
+  infinity: "бессрочно"
+  zero: "0с"
+  years:
+    one: " год" # 1 год
+    few: " года" # 2, 3, 4 года
+    many: " лет" # 5, 6 лет, e.t.c
+  months:
+    one: " месяц"
+    few: " месяца"
+    many: " месяцев"
+  weeks:
+    one: " неделя"
+    few: " недели"
+    many: " недель"
+  days:
+    one: " день"
+    few: " дня"
+    many: " дней"
+  hours:
+    one: " час"
+    few: " часа"
+    many: " часов"
+  minutes:
+    one: " минута"
+    few: " минуты"
+    many: " минут"
+  seconds:
+    one: " секунда"
+    few: " секунды"
+    many: " секунд"
