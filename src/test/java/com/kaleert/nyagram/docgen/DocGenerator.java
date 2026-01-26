@@ -138,7 +138,9 @@ public class DocGenerator {
             CompilationUnit cu = result.getResult().orElse(null);
             if (cu == null) return;
 
-            String pkgName = cu.getPackageDeclaration().map(pd -> pd.getNameAsString()).orElse("default")
+            String pkgName = cu.getPackageDeclaration()
+                    .map(pd -> pd.getNameAsString())
+                    .orElse("default")
                     .replace("com.kaleert.nyagram.", "");
 
             packageMap.putIfAbsent(pkgName, new ArrayList<>());
@@ -159,11 +161,9 @@ public class DocGenerator {
 
                 pkgClasses.removeIf(c -> c.name.equals(typeName));
 
-                String description = extractDescription(type);
+                String classDescription = extractDescription(type); // Переименовал переменную для ясности!
                 
-                // --- GAP ANALYSIS FOR CLASS ---
-                totalDocsCount.incrementAndGet(); 
-                if (isDescriptionEmpty(description)) {
+                if (isDescriptionEmpty(classDescription)) {
                     addGap(finalPkgName, typeName, "CLASS", "Добавь JavaDoc описание классу", calculateWeight(finalPkgName, "CLASS"));
                 }
 
@@ -173,7 +173,7 @@ public class DocGenerator {
                 
                 String rawSince = extractTag(type, JavadocBlockTag.Type.SINCE);
                 final String effectiveClassSince = (rawSince != null && !rawSince.isEmpty()) ? rawSince : PROJECT_VERSION;
-                String example = cleanExampleCode(extractTag(type, "example"));
+                String classExample = cleanExampleCode(extractTag(type, "example"));
 
                 List<String> extendsList = type.isClassOrInterfaceDeclaration() ? 
                     type.asClassOrInterfaceDeclaration().getExtendedTypes().stream().map(Object::toString).toList() : null;
@@ -204,7 +204,6 @@ public class DocGenerator {
                 List<MethodDoc> constructors = new ArrayList<>();
                 List<MethodDoc> methods = new ArrayList<>();
 
-                // 1. RECORD COMPONENTS
                 if (type.isRecordDeclaration()) {
                     RecordDeclaration rec = type.asRecordDeclaration();
                     rec.getParameters().forEach(rc -> {
@@ -221,11 +220,8 @@ public class DocGenerator {
                              Map<String, String> classParams = extractParamMap(type);
                              if (classParams.containsKey(name)) {
                                  desc = classParams.get(name);
-                             } else {
-                                 addGap(finalPkgName, typeName + "#" + name, "FIELD", "Добавь @param " + name + " в описание рекорда", calculateWeight(finalPkgName, "FIELD"));
                              }
                         }
-                        
                         fields.add(new FieldDoc(name, fieldType, "private final", desc, getLine(rc)));
                     });
                     
@@ -238,16 +234,8 @@ public class DocGenerator {
                     }
                 }
 
-                // 2. FIELDS
                 type.getFields().forEach(field -> {
                     String fieldDesc = extractDescription(field);
-                    if (field.isPublic()) {
-                         totalDocsCount.incrementAndGet(); 
-                         if (isDescriptionEmpty(fieldDesc)) {
-                             String fieldName = field.getVariables().get(0).getNameAsString();
-                             addGap(finalPkgName, typeName + "#" + fieldName, "FIELD", "Опиши публичное поле", calculateWeight(finalPkgName, "FIELD"));
-                         }
-                    }
                     String fieldType = field.getElementType().asString();
                     String visibility = field.getAccessSpecifier().asString().toLowerCase();
                     int line = getLine(field);
@@ -256,15 +244,8 @@ public class DocGenerator {
                     );
                 });
 
-                // 3. CONSTRUCTORS
                 type.getConstructors().forEach(c -> {
-                    String desc = extractDescription(c);
-                    if (c.isPublic()) {
-                        totalDocsCount.incrementAndGet(); 
-                        if (isDescriptionEmpty(desc)) {
-                            addGap(finalPkgName, typeName + "()", "CONSTR", "Опиши конструктор", calculateWeight(finalPkgName, "METHOD"));
-                        }
-                    }
+                    String cDesc = extractDescription(c); // Специфичное описание конструктора
                     String sig = c.getDeclarationAsString(true, true, true);
                     String tag = c.isPublic() ? "API" : "Internal";
                     Map<String, String> ctorParamDocs = extractParamMap(c);
@@ -279,29 +260,29 @@ public class DocGenerator {
                             .collect(Collectors.toList());
                     
                     constructors.add(new MethodDoc(
-                        typeName, "new_" + c.getParameters().size(), tag, desc, sig, params, 
+                        typeName, "new_" + c.getParameters().size(), tag, cDesc, sig, params, 
                         new ReturnDoc(typeName, ""), thrownExceptions, getLine(c), 
                         c.isAnnotationPresent("Deprecated"), effectiveClassSince, null
                     ));
                 });
 
-                // 4. METHODS
                 type.getMethods().forEach(m -> {
                     if (m.isAnnotationPresent("Override") || m.getNameAsString().equals("toString") || m.getNameAsString().equals("equals") || m.getNameAsString().equals("hashCode")) {
                         return; 
                     }
 
-                    String methodDesc = extractDescription(m);
+                    String methodDescription = extractDescription(m); 
+
                     if (m.isPublic()) {
                         totalDocsCount.incrementAndGet(); 
-                        if (isDescriptionEmpty(methodDesc)) {
-                            addGap(finalPkgName, typeName + "#" + m.getNameAsString(), "METHOD", "Опиши, что делает этот метод", calculateWeight(finalPkgName, "METHOD"));
+                        if (isDescriptionEmpty(methodDescription)) {
+                            addGap(finalPkgName, typeName + "#" + m.getNameAsString(), "METHOD", "Опиши метод", calculateWeight(finalPkgName, "METHOD"));
                         }
                     }
 
                     String signature = m.getDeclarationAsString(true, true, true);
                     int line = getLine(m);
-                    String tag = (methodDesc.contains("@Internal") || m.isAnnotationPresent("Internal") || !m.isPublic()) ? "Internal" : "API";
+                    String tag = (methodDescription.contains("@Internal") || m.isAnnotationPresent("Internal") || !m.isPublic()) ? "Internal" : "API";
                     boolean methodDeprecated = m.isAnnotationPresent("Deprecated");
                     String methodSince = cleanExampleCode(extractTag(m, JavadocBlockTag.Type.SINCE));
                     if (methodSince == null) methodSince = effectiveClassSince;
@@ -313,12 +294,6 @@ public class DocGenerator {
                     List<ParamDoc> params = m.getParameters().stream().map(p -> {
                         String pName = p.getNameAsString();
                         String pDesc = paramDocs.getOrDefault(pName, "No description.");
-                        if (m.isPublic()) {
-                             totalDocsCount.incrementAndGet(); 
-                             if (pDesc.equals("No description.")) {
-                                 addGap(finalPkgName, typeName + "#" + m.getNameAsString() + " param: " + pName, "PARAM", "Добавь @param " + pName, calculateWeight(finalPkgName, "PARAM"));
-                             }
-                        }
                         return new ParamDoc(pName, p.getTypeAsString(), pDesc);
                     }).collect(Collectors.toList());
 
@@ -327,7 +302,9 @@ public class DocGenerator {
                     methods.add(new MethodDoc(
                             m.getNameAsString(),
                             m.getNameAsString() + "_" + m.getParameters().size(),
-                            tag, methodDesc, signature, params,
+                            tag, 
+                            methodDescription,
+                            signature, params,
                             new ReturnDoc(m.getTypeAsString(), returnDesc),
                             thrownExceptions, line, methodDeprecated, methodSince, methodExample
                     ));
@@ -337,7 +314,7 @@ public class DocGenerator {
                     typeName, 
                     typeName, 
                     docType, 
-                    description, 
+                    classDescription,
                     fields, 
                     constructors, 
                     methods, 
@@ -345,7 +322,7 @@ public class DocGenerator {
                     classLine, 
                     isDeprecated, 
                     effectiveClassSince, 
-                    example,
+                    classExample,
                     extendsList, 
                     implementsList, 
                     typeParams
