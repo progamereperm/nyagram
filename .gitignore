@@ -1,3 +1,8 @@
+secring.gpg
+gradle.properties
+signing.properties
+*.gpg
+*.asc
 .gradle/
 build/
 out/
