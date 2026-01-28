@@ -3,7 +3,7 @@
 ![Java 21](https://img.shields.io/badge/Java-21-orange?style=flat-square&logo=openjdk)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2+-green?style=flat-square&logo=springboot)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
-![Version](https://img.shields.io/badge/version-1.1.0-red?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.1.1-red?style=flat-square)
 
 [🇷🇺 Читать на русском](Readme_RU.md)
 
