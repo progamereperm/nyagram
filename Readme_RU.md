@@ -33,7 +33,7 @@
 ### Gradle
 ```groovy
 dependencies {
-    implementation 'io.github.kaleert:nyagram:1.1.0'
+    implementation 'io.github.kaleert:nyagram:1.1.1'
 }
 ```
 
@@ -42,7 +42,7 @@ dependencies {
 <dependency>
     <groupId>io.github.kaleert</groupId>
     <artifactId>nyagram</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
 </dependency>
 ```
 

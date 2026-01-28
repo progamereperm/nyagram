@@ -8,8 +8,12 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ParseResult;
+import com.github.javaparser.ast.expr.AnnotationExpr;
+import com.github.javaparser.ast.expr.MemberValuePair;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.*;
+import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 import com.github.javaparser.ast.nodeTypes.NodeWithJavadoc;
 import com.github.javaparser.ast.nodeTypes.NodeWithTypeParameters;
 import com.github.javaparser.javadoc.JavadocBlockTag;
@@ -26,7 +30,7 @@ public class DocGenerator {
 
     private static final String SOURCE_ROOT = "src/main/java";
     private static final String OUTPUT_FILE = "../nyagram-docs/public/data/api.yaml";
-    private static final String PROJECT_VERSION = "1.0.0";
+    private static final String PROJECT_VERSION = "1.1.1";
     
     private static final JavaParser parser;
     private static final ObjectMapper mapper;
@@ -157,19 +161,13 @@ public class DocGenerator {
                 }
                 
                 final String typeName = tempTypeName; 
-                final String finalPkgName = pkgName;
-
                 pkgClasses.removeIf(c -> c.name.equals(typeName));
 
-                String classDescription = extractDescription(type); // Переименовал переменную для ясности!
-                
-                if (isDescriptionEmpty(classDescription)) {
-                    addGap(finalPkgName, typeName, "CLASS", "Добавь JavaDoc описание классу", calculateWeight(finalPkgName, "CLASS"));
-                }
-
+                String classDescription = extractDescription(type);
                 String docType = determineType(type);
                 int classLine = getLine(type);
-                boolean isDeprecated = type.isAnnotationPresent("Deprecated");
+                
+                DeprecationDoc deprecation = extractDeprecation(type, type);
                 
                 String rawSince = extractTag(type, JavadocBlockTag.Type.SINCE);
                 final String effectiveClassSince = (rawSince != null && !rawSince.isEmpty()) ? rawSince : PROJECT_VERSION;
@@ -186,7 +184,7 @@ public class DocGenerator {
                     Map<String, String> paramMap = extractParamMap(type);
                     nodeWithTP.getTypeParameters().forEach(tp -> {
                         String name = tp.getNameAsString();
-                        String desc = paramMap.getOrDefault("<" + name + ">", "No description provided.");
+                        String desc = paramMap.getOrDefault("<" + name + ">", "No description.");
                         typeParams.add(new GenericTypeDoc(name, desc));
                     });
                 }
@@ -196,7 +194,8 @@ public class DocGenerator {
                     type.asEnumDeclaration().getEntries().forEach(entry -> {
                         String name = entry.getNameAsString();
                         String desc = extractDescription(entry);
-                        enumConstants.add(new EnumConstantDoc(name, desc));
+                        DeprecationDoc enumDepr = extractDeprecation(entry, entry);
+                        enumConstants.add(new EnumConstantDoc(name, desc, enumDepr));
                     });
                 }
 
@@ -214,15 +213,7 @@ public class DocGenerator {
                                 .map(c -> javadocToMarkdown(c.asJavadocComment().parse().getDescription().toText()))
                                 .orElse("Record component");
                         
-                        totalDocsCount.incrementAndGet(); 
-                        
-                        if (desc.equals("Record component")) {
-                             Map<String, String> classParams = extractParamMap(type);
-                             if (classParams.containsKey(name)) {
-                                 desc = classParams.get(name);
-                             }
-                        }
-                        fields.add(new FieldDoc(name, fieldType, "private final", desc, getLine(rc)));
+                        fields.add(new FieldDoc(name, fieldType, "private final", desc, getLine(rc), null));
                     });
                     
                     if (rec.getConstructors().isEmpty()) {
@@ -230,7 +221,7 @@ public class DocGenerator {
                             .map(rc -> new ParamDoc(rc.getNameAsString(), rc.getTypeAsString(), ""))
                             .collect(Collectors.toList());
                         String sig = typeName + "(" + cParams.stream().map(p -> p.type + " " + p.name).collect(Collectors.joining(", ")) + ")";
-                        constructors.add(new MethodDoc(typeName, "new", "API", "Canonical constructor", sig, cParams, new ReturnDoc(typeName, ""), Collections.emptyList(), classLine, false, effectiveClassSince, null));
+                        constructors.add(new MethodDoc(typeName, "new", "API", "Canonical constructor", sig, cParams, new ReturnDoc(typeName, ""), Collections.emptyList(), classLine, null, effectiveClassSince, null));
                     }
                 }
 
@@ -239,13 +230,15 @@ public class DocGenerator {
                     String fieldType = field.getElementType().asString();
                     String visibility = field.getAccessSpecifier().asString().toLowerCase();
                     int line = getLine(field);
+                    DeprecationDoc fieldDepr = extractDeprecation(field, field);
+                    
                     field.getVariables().forEach(var -> 
-                        fields.add(new FieldDoc(var.getNameAsString(), fieldType, visibility, fieldDesc, line))
+                        fields.add(new FieldDoc(var.getNameAsString(), fieldType, visibility, fieldDesc, line, fieldDepr))
                     );
                 });
 
                 type.getConstructors().forEach(c -> {
-                    String cDesc = extractDescription(c); // Специфичное описание конструктора
+                    String cDesc = extractDescription(c);
                     String sig = c.getDeclarationAsString(true, true, true);
                     String tag = c.isPublic() ? "API" : "Internal";
                     Map<String, String> ctorParamDocs = extractParamMap(c);
@@ -259,10 +252,12 @@ public class DocGenerator {
                             })
                             .collect(Collectors.toList());
                     
+                    DeprecationDoc ctorDepr = extractDeprecation(c, c);
+
                     constructors.add(new MethodDoc(
                         typeName, "new_" + c.getParameters().size(), tag, cDesc, sig, params, 
                         new ReturnDoc(typeName, ""), thrownExceptions, getLine(c), 
-                        c.isAnnotationPresent("Deprecated"), effectiveClassSince, null
+                        ctorDepr, effectiveClassSince, null
                     ));
                 });
 
@@ -272,18 +267,12 @@ public class DocGenerator {
                     }
 
                     String methodDescription = extractDescription(m); 
-
-                    if (m.isPublic()) {
-                        totalDocsCount.incrementAndGet(); 
-                        if (isDescriptionEmpty(methodDescription)) {
-                            addGap(finalPkgName, typeName + "#" + m.getNameAsString(), "METHOD", "Опиши метод", calculateWeight(finalPkgName, "METHOD"));
-                        }
-                    }
-
                     String signature = m.getDeclarationAsString(true, true, true);
                     int line = getLine(m);
                     String tag = (methodDescription.contains("@Internal") || m.isAnnotationPresent("Internal") || !m.isPublic()) ? "Internal" : "API";
-                    boolean methodDeprecated = m.isAnnotationPresent("Deprecated");
+                    
+                    DeprecationDoc methodDepr = extractDeprecation(m, m);
+
                     String methodSince = cleanExampleCode(extractTag(m, JavadocBlockTag.Type.SINCE));
                     if (methodSince == null) methodSince = effectiveClassSince;
                     
@@ -306,31 +295,50 @@ public class DocGenerator {
                             methodDescription,
                             signature, params,
                             new ReturnDoc(m.getTypeAsString(), returnDesc),
-                            thrownExceptions, line, methodDeprecated, methodSince, methodExample
+                            thrownExceptions, line, methodDepr, methodSince, methodExample
                     ));
                 });
 
                 pkgClasses.add(new ClassDoc(
-                    typeName, 
-                    typeName, 
-                    docType, 
-                    classDescription,
-                    fields, 
-                    constructors, 
-                    methods, 
-                    enumConstants,
-                    classLine, 
-                    isDeprecated, 
-                    effectiveClassSince, 
-                    classExample,
-                    extendsList, 
-                    implementsList, 
-                    typeParams
+                    typeName, typeName, docType, classDescription, fields, constructors, methods, enumConstants,
+                    classLine, deprecation, effectiveClassSince, classExample, extendsList, implementsList, typeParams
                 ));
             });
         } catch (Exception e) { e.printStackTrace(); }
     }
+    
+   private static DeprecationDoc extractDeprecation(NodeWithAnnotations<?> annotatedNode, NodeWithJavadoc<?> javadocNode) {
+        boolean isAnnotated = annotatedNode.isAnnotationPresent("Deprecated");
+        
+        if (!isAnnotated) {
+            return null;
+        }
+        
+        String since = "";
+        boolean forRemoval = false;
+        String reason = "";
 
+        Optional<AnnotationExpr> annOpt = annotatedNode.getAnnotationByName("Deprecated");
+        if (annOpt.isPresent() && annOpt.get().isNormalAnnotationExpr()) {
+            NodeList<MemberValuePair> pairs = annOpt.get().asNormalAnnotationExpr().getPairs();
+            for (MemberValuePair pair : pairs) {
+                if (pair.getNameAsString().equals("since")) {
+                    since = pair.getValue().toString().replace("\"", "");
+                } else if (pair.getNameAsString().equals("forRemoval")) {
+                    forRemoval = Boolean.parseBoolean(pair.getValue().toString());
+                }
+            }
+        }
+        
+        reason = javadocNode.getJavadoc().flatMap(jd -> jd.getBlockTags().stream()
+                .filter(t -> t.getType() == JavadocBlockTag.Type.DEPRECATED)
+                .map(t -> javadocToMarkdown(t.getContent().toText()))
+                .findFirst())
+                .orElse("");
+
+        return new DeprecationDoc(true, since, forRemoval, reason);
+    } 
+    
     // --- GAP HELPERS ---
 
     private record Gap(String type, String location, String todo, int weight) {}
@@ -474,13 +482,14 @@ public class DocGenerator {
     }
 
     // DTOs
+    public record DeprecationDoc(boolean isDeprecated, String since, boolean forRemoval, String description) {}
     public record ApiRoot(String version, List<PackageDoc> packages) {}
     public record PackageDoc(String name, List<ClassDoc> items) {}
-    public record ClassDoc(String id, String name, String type, String description, List<FieldDoc> fields, List<MethodDoc> constructors, List<MethodDoc> methods, List<EnumConstantDoc> enumConstants, int line, boolean deprecated, String since, String example, List<String> extendsList, List<String> implementsList, List<GenericTypeDoc> typeParameters) {}
-    public record EnumConstantDoc(String name, String description) {}
+    public record ClassDoc(String id, String name, String type, String description, List<FieldDoc> fields, List<MethodDoc> constructors, List<MethodDoc> methods, List<EnumConstantDoc> enumConstants, int line, DeprecationDoc deprecation, String since, String example, List<String> extendsList, List<String> implementsList, List<GenericTypeDoc> typeParameters) {}
+    public record EnumConstantDoc(String name, String description, DeprecationDoc deprecation) {}
     public record GenericTypeDoc(String name, String description) {}
-    public record FieldDoc(String name, String type, String visibility, String description, int line) {}
-    public record MethodDoc(String name, String anchor, String tag, String description, String signature, List<ParamDoc> parameters, ReturnDoc returns, List<ThrowsDoc> exceptions, int line, boolean deprecated, String since, String example) {}
+    public record FieldDoc(String name, String type, String visibility, String description, int line, DeprecationDoc deprecation) {}
+    public record MethodDoc(String name, String anchor, String tag, String description, String signature, List<ParamDoc> parameters, ReturnDoc returns, List<ThrowsDoc> exceptions, int line, DeprecationDoc deprecation, String since, String example) {}
     public record ParamDoc(String name, String type, String desc) {}
     public record ReturnDoc(String type, String desc) {}
     public record ThrowsDoc(String type, String desc) {}

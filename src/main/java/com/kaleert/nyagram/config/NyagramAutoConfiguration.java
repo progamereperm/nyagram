@@ -24,10 +24,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
+import jakarta.annotation.PostConstruct;
 
 import java.util.Collections;
 import java.util.stream.Stream;
@@ -48,17 +50,28 @@ import java.util.stream.Stream;
 @Slf4j
 @Configuration
 @ComponentScan(basePackages = "com.kaleert.nyagram")
+@EnableConfigurationProperties(NyagramProperties.class)
 public class NyagramAutoConfiguration {
-    
+  
     /**
-     * Создает конфигурацию по умолчанию, если пользователь не предоставил свою реализацию {@link NyagramBotConfig}.
-     * Использует настройки из {@code application.yml} (префикс {@code nyagram}).
-     *
-     * @param properties Свойства конфигурации, загруженные из application.yml.
-     * @return Объект конфигурации.
+    * Логирует инициализацию
+    *
+    * @since 1.1.1
+    **/
+    @PostConstruct
+    public void init() {
+        log.info("Nyagram Library Initialized");
+    }
+    
+      /**
+     * Создает конфигурацию по умолчанию.
+     * @deprecated Этот метод вызывает дублирование бинов, так как NyagramProperties уже является бином.
+     * Оставлен для обратной совместимости API, но отключен по умолчанию.
      */
     @Bean
     @ConditionalOnMissingBean(NyagramBotConfig.class)
+    @Deprecated(since = "1.1.1", forRemoval = true)
+    @ConditionalOnProperty(name = "nyagram.internal.enable-legacy-config", havingValue = "true", matchIfMissing = false)
     public NyagramBotConfig defaultNyagramConfig(NyagramProperties properties) {
         return properties;
     }
@@ -123,7 +136,6 @@ public class NyagramAutoConfiguration {
      * @return Объект пуллера.
      */
     @Bean(initMethod = "start", destroyMethod = "stop")
-    @ConditionalOnBean(NyagramBotConfig.class)
     @ConditionalOnProperty(name = "nyagram.mode", havingValue = "POLLING", matchIfMissing = true)
     public NyagramPoller nyagramPoller(
             NyagramBotConfig botConfig,

@@ -13,6 +13,9 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -48,7 +51,10 @@ public class NyagramPoller {
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private ExecutorService pollerExecutor;
     
-    private static final String TELEGRAM_UPDATE_URL = "https://api.telegram.org/bot%s/getUpdates?timeout=%d&offset=%d&allowed_updates=%s";
+    private static final String BASE_URL_FORMAT = "https://api.telegram.org/bot%s/getUpdates?timeout=%d&offset=%d";
+    
+    /** Аварийная задержка, если конфиг сломан **/
+    private static final int EMERGENCY_FALLBACK_DELAY = 3;
     
     /**
      * Запускает процесс Long Polling в отдельном потоке.
@@ -63,6 +69,15 @@ public class NyagramPoller {
         }
 
         log.info("Starting Nyagram Poller for bot: @{}", botConfig.getBotUsername());
+        
+        String token = botConfig.getBotToken();
+        if (token == null || token.isBlank()) {
+            log.error("❌ FATAL: Bot token is EMPTY or NULL! Check your configuration");
+            return;
+        }
+        if (token.contains(" ")) {
+            log.warn("⚠️ Warning: Token contains spaces! Attempting to trim...");
+        }
         
         pollerExecutor = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "nyagram-poller");
@@ -100,76 +115,81 @@ public class NyagramPoller {
         }
         log.info("Nyagram Poller stopped successfully");
     }
-
+    
+    /**
+     * Основной цикл опроса сервера.
+     */
     private void pollLoop() {
-        long storedId = stateRepository.getLastUpdateId();
-        long offset = storedId > 0 ? storedId + 1 : 0;
-
-        int consecutiveNetworkErrors = 0;
+        long offset = stateRepository.getLastUpdateId() + 1;
+        String allowedUpdatesParam = buildAllowedUpdatesParam();
         
-        String allowedUpdatesJson = "[]";
-        try {
-            if (botConfig.getAllowedUpdates() != null && !botConfig.getAllowedUpdates().isEmpty()) {
-                allowedUpdatesJson = objectMapper.writeValueAsString(botConfig.getAllowedUpdates());
-            }
-        } catch (Exception e) {
-            log.error("Failed to serialize allowed_updates config", e);
-        }
+        String rawToken = botConfig.getBotToken();
+        String safeToken = (rawToken != null) ? rawToken.trim() : "";
 
         log.info("Nyagram Poller started. Offset: {}", offset);
 
         while (isRunning.get() && !Thread.currentThread().isInterrupted()) {
             try {
-                String url = String.format(TELEGRAM_UPDATE_URL,
-                        botConfig.getBotToken(),
-                        botConfig.getLongPollingTimeoutSeconds(),
-                        offset,
-                        allowedUpdatesJson
-                );
+                String urlStr = String.format(BASE_URL_FORMAT,
+                        safeToken,
+                        50, 
+                        offset
+                ) + allowedUpdatesParam;
 
-                ResponseEntity<String> responseEntity = restTemplate.getForEntity(url, String.class);
+                URI uri = URI.create(urlStr);
 
-                if (!responseEntity.getStatusCode().is2xxSuccessful() || responseEntity.getBody() == null) {
-                    log.warn("Telegram API HTTP Error: {}", responseEntity.getStatusCode());
-                    sleep(botConfig.getPollingRetryDelaySeconds());
+                ResponseEntity<String> response = restTemplate.getForEntity(uri, String.class);
+
+                if (!response.getStatusCode().is2xxSuccessful()) {
+                    log.warn("Telegram API Error: {}", response.getStatusCode());
+                    ensureSafeDelay();
                     continue;
                 }
 
-                UpdateResponse response = objectMapper.readValue(responseEntity.getBody(), UpdateResponse.class);
+                UpdateResponse result = objectMapper.readValue(response.getBody(), UpdateResponse.class);
 
-                if (Boolean.TRUE.equals(response.getOk())) {
-                    consecutiveNetworkErrors = 0;
-                    List<Update> updates = response.getResult() != null ? response.getResult() : Collections.emptyList();
-
+                if (Boolean.TRUE.equals(result.getOk())) {
+                    List<Update> updates = result.getResult() != null ? result.getResult() : Collections.emptyList();
                     if (!updates.isEmpty()) {
-                        long maxProcessedId = processUpdatesWithBackpressure(updates);
-
-                        if (maxProcessedId >= offset) {
-                            offset = maxProcessedId + 1;
-                            stateRepository.saveLastUpdateId(maxProcessedId);
+                        for (Update u : updates) {
+                            try {
+                                updateProcessor.processAsync(u);
+                                offset = u.getUpdateId() + 1;
+                                stateRepository.saveLastUpdateId(u.getUpdateId());
+                            } catch (Exception e) {
+                                log.error("Error processing update {}", u.getUpdateId(), e);
+                            }
                         }
                     }
                 } else {
-                    handleLogicalError(response);
-                    sleep(botConfig.getPollingRetryDelaySeconds());
+                    log.error("API Logic Error: {} (Code: {})", result.getDescription(), result.getErrorCode());
+                    if (Integer.valueOf(409).equals(result.getErrorCode()) || Integer.valueOf(401).equals(result.getErrorCode())) {
+                        stop();
+                    } else {
+                        ensureSafeDelay();
+                    }
                 }
 
             } catch (ResourceAccessException e) {
-                consecutiveNetworkErrors++;
-                int sleepTime = Math.min(consecutiveNetworkErrors * 2, botConfig.getPollingMaxBackoffSeconds());
-                log.warn("Network error (Attempt {}). Retrying in {}s. Error: {}", consecutiveNetworkErrors, sleepTime, e.getMessage());
-                sleep(sleepTime);
-                
+                log.warn("Network timeout. Retrying...");
             } catch (HttpClientErrorException e) {
-                handleHttpError(e);
-                
+                if (e.getStatusCode().value() == 404) {
+                    log.error("❌ HTTP 404 Not Found. Check your token!");
+                    log.error("👉 Configured Token: '{}'", safeToken); 
+                    log.error("👉 Token Length: {}", safeToken.length());
+                    stop(); 
+                } else if (e.getStatusCode().value() == 409 || e.getStatusCode().value() == 401) {
+                    log.error("⛔ Fatal Error: {}. Stopping.", e.getStatusCode());
+                    stop();
+                } else {
+                    log.warn("HTTP Error: {}", e.getStatusCode());
+                    ensureSafeDelay();
+                }
             } catch (Exception e) {
-                log.error("Unexpected critical error in Poller loop", e);
-                sleep(botConfig.getPollingRetryDelaySeconds());
+                log.error("Critical Poller Error", e);
+                ensureSafeDelay();
             }
         }
-        
-        log.info("Nyagram Poller loop terminated.");
     }
 
     private void handleHttpError(HttpClientErrorException e) {
@@ -181,7 +201,7 @@ public class NyagramPoller {
             stop();
         } else {
             log.warn("HTTP Error: {}", e.getStatusCode());
-            sleep(botConfig.getPollingRetryDelaySeconds());
+            ensureSafeDelay(); 
         }
     }
     
@@ -192,13 +212,47 @@ public class NyagramPoller {
         }
     }
 
-    private void sleep(int seconds) {
+    /**
+     * Выполняет задержку потока перед повторной попыткой запроса.
+     * <p>
+     * Берет значение из {@link NyagramBotConfig#getPollingRetryDelaySeconds()}.
+     * Если конфиг возвращает 0 или меньше (ошибка конфигурации), используется
+     * безопасное значение {@link #EMERGENCY_FALLBACK_DELAY}, чтобы избежать блокировки со стороны Telegram.
+     * </p>
+     */
+    private void ensureSafeDelay() {
+        int delay = botConfig.getPollingRetryDelaySeconds();
+        
+        if (delay <= 0) {
+            log.warn("⚠️ Configured polling delay is {}s. Using emergency fallback {}s to prevent ban.", 
+                    delay, EMERGENCY_FALLBACK_DELAY);
+            delay = EMERGENCY_FALLBACK_DELAY;
+        }
+        
         try {
-            TimeUnit.SECONDS.sleep(seconds);
+            TimeUnit.SECONDS.sleep(delay);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             isRunning.set(false);
         }
+    }
+    
+    /**
+     * Формирует параметр allowed_updates только если он задан.
+     * Кодирует JSON, чтобы не ломать URL.
+     @since 1.1.1
+     */
+    private String buildAllowedUpdatesParam() {
+        try {
+            List<String> updates = botConfig.getAllowedUpdates();
+            if (updates != null && !updates.isEmpty()) {
+                String json = objectMapper.writeValueAsString(updates);
+                return "&allowed_updates=" + URLEncoder.encode(json, StandardCharsets.UTF_8);
+            }
+        } catch (Exception e) {
+            log.error("Failed to serialize allowed_updates config", e);
+        }
+        return "";
     }
     
     private long processUpdatesWithBackpressure(List<Update> updates) {
@@ -228,5 +282,20 @@ public class NyagramPoller {
         }
         
         return lastSuccessId;
+    }
+    
+    /**
+     * Старый метод задержки.
+     * @param seconds время в секундах.
+     * @deprecated Используйте {@link #ensureSafeDelay()}, который гарантирует безопасность и использует конфиг.
+     */
+    @Deprecated(since = "1.1.1", forRemoval = true)
+    private void sleep(int seconds) {
+        try {
+            TimeUnit.SECONDS.sleep(seconds);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            isRunning.set(false);
+        }
     }
 }
